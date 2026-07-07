@@ -5,6 +5,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "pinfo.h"
+
 
 struct cpu cpus[NCPU];
 
@@ -689,4 +691,44 @@ procdump(void)
     printk("%d %s %s", p->pid, state, p->name);
     printk("\n");
   }
+}
+
+
+
+// Added proc.c function
+
+int
+getpinfo_helper(uint64 info_addr)
+{
+  struct pinfo info;
+  struct proc *p;
+  int i = 0;
+
+  info.proc_count = 0;
+
+  // جستجو در آرایه تمام فرآیندهای سیستم
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock); // قفل کردن فرآیند برای خواندن امن اطلاعات
+    
+    // اگر فرآیند خالی و بلااستفاده نیست، اطلاعاتش را ذخیره کن
+    if(p->state != UNUSED) {
+      info.procs[i].pid = p->pid;
+      info.procs[i].state = p->state;
+      info.procs[i].priority = 50; // مقدار پیش‌فرض موقت تا پیاده‌سازی بخش دوم
+      info.procs[i].tickets = 1;   // مقدار پیش‌فرض موقت تا پیاده‌سازی بخش سوم
+      safestrcpy(info.procs[i].name, p->name, sizeof(p->name));
+      
+      i++;
+      info.proc_count++;
+    }
+    
+    release(&p->lock); // آزاد کردن قفل
+  }
+
+  // انتقال ایمن اطلاعات جمع‌آوری شده از فضای هسته به فضای کاربر
+  struct proc *my_p = myproc();
+  if(copyout(my_p->pagetable, info_addr, (char *)&info, sizeof(info)) < 0)
+    return -1;
+
+  return 0;
 }

@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "pinfo.h"
 
 uint64
 sys_exit(void)
@@ -106,4 +107,19 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+
+// New function that apply system call
+uint64
+sys_getpinfo(void)
+{
+  uint64 info_addr; // آدرسی که کاربر از فضای خودش فرستاده است
+
+  // دریافت آرگومان اول (چون این تابع void است، نیازی به چک کردن شرط نیست)
+  argaddr(0, &info_addr);
+
+  // برای دسترسی امن به آرایه فرآیندها، یک تابع کمکی در proc.c صدا می‌زنیم
+  extern int getpinfo_helper(uint64);
+  return getpinfo_helper(info_addr);
 }
