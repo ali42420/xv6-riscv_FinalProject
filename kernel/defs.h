@@ -1,4 +1,5 @@
 // clang-format off
+
 struct buf;
 struct context;
 struct file;
@@ -9,6 +10,8 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+
+
 
 // bio.c
 void            binit(void);
@@ -79,6 +82,7 @@ void            panic(char*) __attribute__((noreturn));
 void            printkinit(void);
 
 // proc.c
+
 int             cpuid(void);
 void            kexit(int);
 int             kfork(void);
