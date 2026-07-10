@@ -22,4 +22,4 @@
 #define SYS_close  21
 #define SYS_sync   22 
 #define SYS_getpinfo 22  // added
-
+#define SYS_setpriority 23  // added_2
