@@ -110,16 +110,32 @@ sys_uptime(void)
 }
 
 
-// New function that apply system call
+// New function that apply system call  added
 uint64
 sys_getpinfo(void)
 {
-  uint64 info_addr; // آدرسی که کاربر از فضای خودش فرستاده است
+  uint64 info_addr; 
 
-  // دریافت آرگومان اول (چون این تابع void است، نیازی به چک کردن شرط نیست)
   argaddr(0, &info_addr);
 
   // برای دسترسی امن به آرایه فرآیندها، یک تابع کمکی در proc.c صدا می‌زنیم
   extern int getpinfo_helper(uint64);
   return getpinfo_helper(info_addr);
+}
+
+
+// added_2
+
+uint64
+sys_setpriority(void)
+{
+  int pid, priority;
+
+  argint(0, &pid);
+  argint(1, &priority);
+
+  if(priority < 0 || priority > 100)
+    return -1;
+
+  return setpriority(pid, priority);
 }
