@@ -101,4 +101,7 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  // added two variables  added_2
+  int tickets;                 // Number of lottery tickets
+  int priority;                // proccess priority (0 = highest, 100 = lowest)
 };
