@@ -147,6 +147,10 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+  
+  // intialize values  added_2
+  p->tickets = 1;
+  p->priority = 50;
 
   return p;
 }
@@ -423,6 +427,75 @@ kwait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+
+
+// New Scheduler (setpriority) added_2
+void
+scheduler(void)
+{
+  struct proc *p;
+  struct cpu *c = mycpu();
+  c->proc = 0;
+  
+  // 🔹 ذخیره آخرین فرآیند اجرا شده برای پیاده‌سازی نوبت‌گردشی در زمان تساوی اولویت‌ها
+  static struct proc *last_run = proc; 
+
+  for(;;){
+    // Avoid deadlock by ensuring devices can interrupt.
+    intr_on();
+
+    int highest_priority = 101; // عددی بزرگتر از حداکثر اولویت ممکن (100)
+
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        if(p->priority < highest_priority) {
+          highest_priority = p->priority; // هرچه عدد کمتر، اولویت بالاتر
+        }
+      }
+      release(&p->lock);
+    }
+
+    if(highest_priority == 101)
+      continue;
+
+    struct proc *chosen = 0;
+    
+    struct proc *start = last_run + 1;
+    if(start >= &proc[NPROC])
+      start = proc;
+
+    p = start;
+    do {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE && p->priority == highest_priority) {
+        chosen = p;
+      
+        break;
+      }
+      release(&p->lock);
+      
+      p++;
+      if(p >= &proc[NPROC])
+        p = proc;
+    } while(p != start);
+
+    if(chosen) {
+      chosen->state = RUNNING;
+      c->proc = chosen;
+      last_run = chosen; // به‌روزرسانی برای دفعات بعدی (حفظ نوبت‌گردشی)
+
+      swtch(&c->context, &chosen->context);
+
+      c->proc = 0;
+      release(&chosen->lock);
+    }
+  }
+}
+
+
+
+/*
 void
 scheduler(void)
 {
@@ -471,6 +544,8 @@ scheduler(void)
 // be proc->intena and proc->noff, but that would
 // break in the few places where a lock is held but
 // there's no process.
+
+*/
 void
 sched(void)
 {
@@ -693,8 +768,6 @@ procdump(void)
   }
 }
 
-
-
 // Added proc.c function
 
 int
@@ -705,30 +778,47 @@ getpinfo_helper(uint64 info_addr)
   int i = 0;
 
   info.proc_count = 0;
-
-  // جستجو در آرایه تمام فرآیندهای سیستم
+ 
   for(p = proc; p < &proc[NPROC]; p++) {
-    acquire(&p->lock); // قفل کردن فرآیند برای خواندن امن اطلاعات
+    acquire(&p->lock);
     
-    // اگر فرآیند خالی و بلااستفاده نیست، اطلاعاتش را ذخیره کن
     if(p->state != UNUSED) {
       info.procs[i].pid = p->pid;
       info.procs[i].state = p->state;
-      info.procs[i].priority = 50; // مقدار پیش‌فرض موقت تا پیاده‌سازی بخش دوم
-      info.procs[i].tickets = 1;   // مقدار پیش‌فرض موقت تا پیاده‌سازی بخش سوم
+      info.procs[i].priority = p->priority;
+      info.procs[i].tickets = 1;   
       safestrcpy(info.procs[i].name, p->name, sizeof(p->name));
       
       i++;
       info.proc_count++;
     }
     
-    release(&p->lock); // آزاد کردن قفل
+    release(&p->lock); 
   }
-
-  // انتقال ایمن اطلاعات جمع‌آوری شده از فضای هسته به فضای کاربر
   struct proc *my_p = myproc();
   if(copyout(my_p->pagetable, info_addr, (char *)&info, sizeof(info)) < 0)
     return -1;
 
   return 0;
+}
+
+
+// added_2
+
+
+int
+setpriority(int pid, int priority)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->pid == pid) {
+      p->priority = priority;
+      release(&p->lock);
+      return 0; // موفقیت
+    }
+    release(&p->lock);
+  }
+  return -1; // فرآیند پیدا نشد
 }
