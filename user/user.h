@@ -29,6 +29,7 @@ int uptime(void);
 int sync(void);
 
 int getpinfo(struct pinfo*);   // added
+int setpriority(int, int);    // added_2
 
   // added
 
